@@ -3,6 +3,8 @@ var express = require('express');
 var path = require('path');
 var cookieParser = require('cookie-parser');
 var logger = require('morgan');
+const session = require('express-session');
+const FileStore = require('session-file-store')(session);
 
 var indexRouter = require('./routes/index');
 var usersRouter = require('./routes/users');
@@ -33,10 +35,20 @@ app.set('view engine', 'jade');
 app.use(logger('dev'));
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
-app.use(cookieParser('blah-blah-something-yodda-yadda-yodha'));
+//app.use(cookieParser('blah-blah-something-yodda-yadda-yodha'));
+
+app.use(session({
+    name: 'session-id',
+    secret: 'blah-blah-something-yodda-yadda-yodha',
+    saveUninitialized: false,
+    resave: false,
+    store: new FileStore()
+}));
 
 function auth(req, res, next) {
-    if (!req.signedCookies.user) {
+    console.log(req.session);
+
+    if (!req.session.user) {
         const authHeader = req.headers.authorization;
         if (!authHeader) {
             const err = new Error('You are not authenticated!');
@@ -49,23 +61,23 @@ function auth(req, res, next) {
         const user = auth[0];
         const pass = auth[1];
         if (user === 'admin' && pass === 'password') {
-            res.cookie('user', 'admin', {signed: true});
+            req.session.user = 'admin';
             return next(); // this means the user is authenticated
         } else {
             const err = new Error('You are not authenticated!');
-            res.setHeader('WWW-Authenticate', 'Basic');      
+            res.setHeader('WWW-Authenticate', 'Basic');
             err.status = 401;
             return next(err);
         }
     } else {
-        if(req.signedCookies.user === 'admin') {
+        if (req.session.user === 'admin') {
             return next();
         } else {
             const err = new Error('You are not authenticated!');
             err.status = 401;
             return next(err);
         }
-    } 
+    }
 }
 
 app.use(auth);
